@@ -293,6 +293,16 @@ void MainWindow::ShowImages()
             ShowSolidRegionOnImage(Mask, ImIn).copyTo(ImToShow);
 
         rectangle(ImToShow, Rect(tilePositionX,tilePositionY, tileSizeX, tileSizeY), Scalar(0.0, 255.0, 0.0, 0.0), lineThickness);
+        if(lesionRegionCount)
+        {
+            int lesRegNr = ui->spinBoxLesionNr->value();
+            rectangle(ImToShow, Rect(LesionRegionsParams[lesRegNr].minX,
+                                     LesionRegionsParams[lesRegNr].minY,
+                                     LesionRegionsParams[lesRegNr].maxX - LesionRegionsParams[lesRegNr].minX,
+                                     LesionRegionsParams[lesRegNr].maxY - LesionRegionsParams[lesRegNr].minY),
+                      Scalar(0.0, 0.0, 255.0, 0.0),
+                      lineThickness);
+        }
         ShowsScaledImage(ImToShow,"Lesion mask on Image", scale);
     }
 
@@ -307,6 +317,7 @@ void MainWindow::ShowImages()
     ShowSolidRegionOnImage(Mask, ImIn).copyTo(ImToShow);;
     rectangle(ImToShow, Rect(tilePositionX,tilePositionY, tileSizeX, tileSizeY), Scalar(0.0, 255.0, 0.0, 0.0),
               10);
+
     ui->widgetImageWhole->paintBitmap(ImToShow);
     ui->widgetImageWhole->repaint();
 
@@ -504,8 +515,8 @@ void MainWindow::GetLesion()
 
     lesionTilePositionX = LesionRegionsParams[lesionIndex].minX;
     lesionTilePositionY = LesionRegionsParams[lesionIndex].minY;
-    lesionTileSizeX = LesionRegionsParams[lesionIndex].maxX - LesionRegionsParams[lesionIndex].minX;
-    lesionTileSizeY = LesionRegionsParams[lesionIndex].maxY - LesionRegionsParams[lesionIndex].minY;
+    lesionTileSizeX = LesionRegionsParams[lesionIndex].maxX - LesionRegionsParams[lesionIndex].minX + 1;
+    lesionTileSizeY = LesionRegionsParams[lesionIndex].maxY - LesionRegionsParams[lesionIndex].minY + 1;
 
     ui->checkBoxLesionValid->setChecked(LesionRegionsParams[lesionIndex].valid);
 
@@ -521,7 +532,7 @@ void MainWindow::GetLesion()
         return;
     //TileIm.copyTo(ImShow);
 
-    switch(ui->comboBoxShowMode->currentIndex())
+    switch(1)//ui->comboBoxShowMode->currentIndex())
     {
     case 1:
         ImShow = ShowTransparentRegionOnImage(GetContour5(TileMask), TileIm, ui->spinBoxTransparency->value());
@@ -676,6 +687,7 @@ void MainWindow::on_widgetImageWhole_on_mousePressed(const QPoint point, int but
 void MainWindow::on_spinBoxLesionNr_valueChanged(int arg1)
 {
     GetLesion();
+    ShowImages();
 }
 
 void MainWindow::on_checkBoxLesionValid_clicked(bool checked)
@@ -711,4 +723,9 @@ void MainWindow::on_pushButtonGetStatistics_clicked()
     ui->textEditOut->append("FP =\t" + QString::number(lesionRegionCount - validRegionCount));
     ui->textEditOut->append("FN =\t" + QString::number(reffRegionCount - commonRegionCount));
 
+}
+
+void MainWindow::on_doubleSpinBoxLesionScale_valueChanged(double arg1)
+{
+    GetLesion();
 }

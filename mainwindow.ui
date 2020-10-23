@@ -777,7 +777,7 @@
       <double>1.000000000000000</double>
      </property>
      <property name="maximum">
-      <double>10.000000000000000</double>
+      <double>20.000000000000000</double>
      </property>
      <property name="value">
       <double>6.000000000000000</double>

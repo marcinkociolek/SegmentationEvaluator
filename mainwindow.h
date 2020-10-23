@@ -49,6 +49,8 @@ private slots:
 
     void on_pushButtonGetStatistics_clicked();
 
+    void on_doubleSpinBoxLesionScale_valueChanged(double arg1);
+
 private:
     Ui::MainWindow *ui;
 

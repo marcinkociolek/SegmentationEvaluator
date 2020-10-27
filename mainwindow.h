@@ -62,6 +62,7 @@ private:
 
 
     cv::Mat LesionMask;
+    cv::Mat LesionMaskWithoutCommon;
     cv::Mat ReffMask;
     cv::Mat Mask;
     cv::Mat CommonMask;
@@ -78,6 +79,7 @@ private:
     int lesionRegionCount;
     int commonRegionCount;
 
+    std::vector<int>NoCommonLiesionRegions;
 
     void OpenImageFolder();
     void ReadImage();

@@ -34,7 +34,32 @@ using namespace cv;
 //------------------------------------------------------------------------------------------------------------------------------
 //           Out of Calss functions
 //------------------------------------------------------------------------------------------------------------------------------
+int RenumberMask(cv::Mat MaskMaster, cv::Mat MaskSlave)
+{
+    if(MaskMaster.empty() || MaskSlave.empty())
+      return  -1;
+    if(MaskMaster.type() != CV_16U || MaskSlave.type() != CV_16U)
+      return  -2;
+    if(MaskMaster.cols != MaskSlave.cols || MaskMaster.rows != MaskSlave.rows)
+      return  -3;
 
+    int maxX = MaskMaster.cols;
+    int maxY = MaskMaster.rows;
+    int maxXY = maxX * maxY;
+
+
+    uint16_t *wMaskMaster = (uint16_t *)MaskMaster.data;
+    uint16_t *wMaskSlave = (uint16_t *)MaskSlave.data;
+
+    for(int i = 0; i < maxXY; i++)
+    {
+        if(*wMaskSlave)
+            *wMaskSlave = *wMaskMaster;
+        wMaskMaster++;
+        wMaskSlave++;
+    }
+    return 1;
+}
 
 
 //------------------------------------------------------------------------------------------------------------------------------
@@ -326,8 +351,86 @@ void MainWindow::ShowImages()
 void MainWindow::ProcessImages()
 {
 
-    reffRegionCount = DivideSeparateRegions(ReffMask, 40);
-    lesionRegionCount = DivideSeparateRegions(LesionMask, 40);
+    Mat CombinedMask = Combine2Regions(ReffMask, LesionMask);
+
+    if(CombinedMask.empty())
+        return;
+
+    int combinedMaskCount = DivideSeparateRegions(CombinedMask, 10);
+    RenumberMask(CombinedMask, ReffMask);
+    RenumberMask(CombinedMask, LesionMask);
+
+    int maxX = CombinedMask.cols;
+    int maxY = CombinedMask.rows;
+    int maxXY = maxX * maxY;
+
+    Mask =       Mat::zeros(maxY,maxX, CV_16U);
+    CommonMask = Mat::zeros(maxY,maxX, CV_16U);
+
+    unsigned short * wReffMask;
+    unsigned short * wLesionMask;
+    unsigned short * wMask;
+    unsigned short * wCommonMask;
+
+    wReffMask = (unsigned short *)ReffMask.data;
+    wLesionMask = (unsigned short *)LesionMask.data;
+    wMask = (unsigned short *)Mask.data;
+    wCommonMask = (unsigned short *)CommonMask.data;
+
+    for(int i = 0; i < maxXY; i++)
+    {
+        if(*wLesionMask && *wReffMask)
+        {
+            *wCommonMask = 1;
+            *wMask = 4;
+        }
+        else
+        {
+            if(*wLesionMask)
+            {
+                *wMask = 2;
+            }
+            if(*wReffMask)
+            {
+                *wMask = 3;
+            }
+        }
+
+        wReffMask++;
+        wLesionMask++;
+        wCommonMask++;
+        wMask++;
+    }
+    RenumberMask(CombinedMask, CommonMask);
+    MultiRegionsParams LesionRegionsParams(LesionMask);
+    MultiRegionsParams CommonRegionsParams(CommonMask);
+    NoCommonLiesionRegions.clear();
+    for(int k = 1; k <= combinedMaskCount; k++)
+    {
+        RegionParams LesionRegParam = LesionRegionsParams.GetRegionParams(k);
+        RegionParams CommonRegParam = CommonRegionsParams.GetRegionParams(k);
+        if(LesionRegParam.area && CommonRegParam.area == 0)
+            NoCommonLiesionRegions.push_back(k);
+    }
+
+    if(NoCommonLiesionRegions.size())
+    {
+        ui->spinBoxLesionNr->setMinimum(1);
+        ui->spinBoxLesionNr->setMaximum(NoCommonLiesionRegions.size());
+        ui->checkBoxLesionValid->setEnabled(true);
+        ui->spinBoxLesionNr->setEnabled(true);
+    }
+    else
+    {
+        ui->spinBoxLesionNr->setEnabled(false);
+        ui->spinBoxLesionNr->setMinimum(0);
+        ui->spinBoxLesionNr->setMaximum(0);
+
+        ui->checkBoxLesionValid->setEnabled(false);
+    }
+/*
+    reffRegionCount = DivideSeparateRegions(ReffMask, 10);
+    lesionRegionCount = DivideSeparateRegions(LesionMask, 10);
     ui->textEditOut->append("Refference region count = " + QString::number(reffRegionCount));
     ui->textEditOut->append("Lession region count = " + QString::number(lesionRegionCount));
 
@@ -428,7 +531,7 @@ void MainWindow::ProcessImages()
 
         ui->checkBoxLesionValid->setEnabled(false);
     }
-
+*/
     ShowImages();
 }
 //------------------------------------------------------------------------------------------------------------------------------
@@ -502,7 +605,7 @@ void MainWindow::GetLesion()
         destroyWindow("Lesion");
         return;
     }
-    int lesionIndex = ui->spinBoxLesionNr->value();
+    int lesionIndex = NoCommonLiesionRegions[ui->spinBoxLesionNr->value()];
 
     if(lesionIndex<=0)
     {
@@ -513,7 +616,7 @@ void MainWindow::GetLesion()
 
     int lesionTilePositionX, lesionTilePositionY, lesionTileSizeX, lesionTileSizeY;
 
-    lesionTilePositionX = LesionRegionsParams[lesionIndex].minX;
+    lesionTilePositionX =  LesionRegionsParams[lesionIndex].minX;
     lesionTilePositionY = LesionRegionsParams[lesionIndex].minY;
     lesionTileSizeX = LesionRegionsParams[lesionIndex].maxX - LesionRegionsParams[lesionIndex].minX + 1;
     lesionTileSizeY = LesionRegionsParams[lesionIndex].maxY - LesionRegionsParams[lesionIndex].minY + 1;
@@ -719,10 +822,14 @@ void MainWindow::on_pushButtonGetStatistics_clicked()
         }
     }
     ui->textEditOut->append("Valid region count = " + QString::number(validRegionCount));
-    ui->textEditOut->append("TP =\t" + QString::number(commonRegionCount));
-    ui->textEditOut->append("FP =\t" + QString::number(lesionRegionCount - validRegionCount));
-    ui->textEditOut->append("FN =\t" + QString::number(reffRegionCount - commonRegionCount));
-
+    ui->textEditOut->append("name\tRef#\tTP\tFN\tFP\tles#\tvalid#");
+    ui->textEditOut->append(QString::fromStdString( FileToOpen.stem().string()) + "\t"
+                            + QString::number(reffRegionCount) + "\t"
+                            + QString::number(commonRegionCount) + "\t"
+                            + QString::number (reffRegionCount - commonRegionCount)+ "\t"
+                            + QString::number(lesionRegionCount - validRegionCount)+ "\t"
+                            + QString::number(lesionRegionCount)+ "\t"
+                            + QString::number(validRegionCount));
 }
 
 void MainWindow::on_doubleSpinBoxLesionScale_valueChanged(double arg1)

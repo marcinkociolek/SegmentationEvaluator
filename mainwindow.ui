@@ -574,7 +574,7 @@
       <x>750</x>
       <y>80</y>
       <width>161</width>
-      <height>271</height>
+      <height>481</height>
      </rect>
     </property>
     <property name="frameShape">
@@ -807,6 +807,71 @@
      </property>
      <property name="text">
       <string>Get Statistics</string>
+     </property>
+    </widget>
+    <widget class="QCheckBox" name="checkBoxGrabKeyboard">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>450</y>
+       <width>141</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>włącz skróty klawiatury</string>
+     </property>
+    </widget>
+    <widget class="QCheckBox" name="checkBox3Masks">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>290</y>
+       <width>111</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>3 Masks Mode</string>
+     </property>
+    </widget>
+    <widget class="QLineEdit" name="lineEditPostFix">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>260</y>
+       <width>113</width>
+       <height>21</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>MaKo</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="pushButtonReload">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>320</y>
+       <width>80</width>
+       <height>22</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Re Load</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="pushButtonSaveOut">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>360</y>
+       <width>80</width>
+       <height>22</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>SaveOut</string>
      </property>
     </widget>
    </widget>

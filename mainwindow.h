@@ -51,6 +51,14 @@ private slots:
 
     void on_doubleSpinBoxLesionScale_valueChanged(double arg1);
 
+    void on_checkBoxGrabKeyboard_toggled(bool checked);
+
+    void on_widgetImageWhole_on_KeyPressed(int );
+
+    void on_pushButtonReload_clicked();
+
+    void on_pushButtonSaveOut_clicked();
+
 private:
     Ui::MainWindow *ui;
 
@@ -60,6 +68,9 @@ private:
     cv::Mat ImIn;
     cv::Mat ImOut;
 
+    cv::Mat LesionMask1;
+    cv::Mat LesionMask2;
+    cv::Mat LesionMask3;
 
     cv::Mat LesionMask;
     cv::Mat LesionMaskWithoutCommon;
@@ -73,11 +84,15 @@ private:
     bool allowMoveTile;
     bool adwancedMode;
 
-    RegionParams *LesionRegionsParams;
+    MultiRegionsParams LesionRegionsParams;
+    MultiRegionsParams CommonRegionsParams;
+    MultiRegionsParams RefRegionsParams;
 
     int reffRegionCount;
     int lesionRegionCount;
     int commonRegionCount;
+
+    //MultiRegionsParams LesionRegionsParams;
 
     std::vector<int>NoCommonLiesionRegions;
 
@@ -86,7 +101,9 @@ private:
     void ShowsScaledImage(cv::Mat Im, std::string ImWindowName, double dispalyScale);
     void ShowImages();
     void LoadReffMask();
+    void MaskFusion();
     void LoadLesionMask();
+    cv::Mat LoadLesionMask(std::string PostFix);
     void ProcessImages();
     void GetTile();
     void GetLesion();

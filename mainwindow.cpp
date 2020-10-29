@@ -136,12 +136,46 @@ void MainWindow::ReadImage()
     if(ui->checkBoxShowMatInfo->checkState())
         ui->textEditOut->append(QString::fromStdString(MatPropetiesAsText(ImIn)));
     LoadReffMask();
-    LoadLesionMask();
+    if(ui->checkBox3Masks->checkState())
+        MaskFusion();
+    else
+        LoadLesionMask();
     ScaleImMiniature();
     AdiustTilePositionSpinboxes();
     ProcessImages();
     GetTile();
 }
+//------------------------------------------------------------------------------------------------------------------------------
+void MainWindow::MaskFusion()
+{
+    LesionMask1 =  LoadLesionMask("MaKo");
+    LesionMask2 =  LoadLesionMask("MaSt");
+    LesionMask3 =  LoadLesionMask("MiKo");
+
+    LesionMask = Combine3Regions(LesionMask1, LesionMask2, LesionMask3);
+    int CombinedRegionCount = DivideSeparateRegions(LesionMask, 10);
+    RenumberMask(LesionMask, LesionMask1);
+    RenumberMask(LesionMask, LesionMask2);
+    RenumberMask(LesionMask, LesionMask3);
+
+    MultiRegionsParams LesionMask1Params(LesionMask1);
+    MultiRegionsParams LesionMask2Params(LesionMask2);
+    MultiRegionsParams LesionMask3Params(LesionMask3);
+
+    for(unsigned short k = 1; k <= CombinedRegionCount; k++)
+    {
+        RegionParams Lesion1RegParams = LesionMask1Params.GetRegionParams(k);
+        RegionParams Lesion2RegParams = LesionMask2Params.GetRegionParams(k);
+        RegionParams Lesion3RegParams = LesionMask3Params.GetRegionParams(k);
+
+        if(!((Lesion1RegParams.area && Lesion2RegParams.area) ||
+            (Lesion1RegParams.area && Lesion3RegParams.area) ||
+            (Lesion2RegParams.area && Lesion3RegParams.area)))
+            DeleteRegionFromImage(LesionMask,  k);
+    }
+
+}
+
 //------------------------------------------------------------------------------------------------------------------------------
 void MainWindow::LoadReffMask()
 {
@@ -184,7 +218,7 @@ void MainWindow::LoadLesionMask()
 {
     QString ImageFolderQStr = ui->lineEditImageFolder->text();
     path maskFilePath = ImageFolderQStr.toStdWString();
-    maskFilePath.append(FileToOpen.stem().string() + ".bmp");
+    maskFilePath.append(FileToOpen.stem().string() + ui->lineEditPostFix->text().toStdString() + ".bmp");
 
     if(!exists(maskFilePath))
     {
@@ -193,28 +227,28 @@ void MainWindow::LoadLesionMask()
     }
 
     Mat LesionMaskTemp;
-
+    LesionMask = Mat::zeros(ImIn.rows, ImIn.cols, CV_16U);
     if(exists(maskFilePath))
     {
         LesionMaskTemp = imread(maskFilePath.string(), CV_LOAD_IMAGE_ANYDEPTH);
         if(LesionMaskTemp.type() != CV_8U)
         {
             ui->textEditOut->append("lesion mask format improper");
-            LesionMask = Mat::zeros(ImIn.rows, ImIn.cols, CV_16U);
+
             ui->textEditOut->append("empty mask was created");
             return;
         }
 
         if(LesionMaskTemp.empty())
         {
-            LesionMask = Mat::zeros(ImIn.rows, ImIn.cols, CV_16U);
+
             ui->textEditOut->append("mask file " + QString::fromStdWString(maskFilePath.wstring()) + "cannot be read");
             ui->textEditOut->append("empty mask was created");
             return;
         }
         if(LesionMaskTemp.cols != ImIn.cols || LesionMaskTemp.rows != ImIn.rows)
         {
-            LesionMask = Mat::zeros(ImIn.rows, ImIn.cols, CV_16U);
+
             ui->textEditOut->append("improper lesion mask size");
             ui->textEditOut->append("empty mask was created");
             return;
@@ -222,7 +256,7 @@ void MainWindow::LoadLesionMask()
     }
     else
     {
-        LesionMask = Mat::zeros(ImIn.rows, ImIn.cols, CV_16U);
+
         ui->textEditOut->append("mask file " + QString::fromStdWString(maskFilePath.wstring()) + " not exists");
         ui->textEditOut->append("empty mask was created");
         return;
@@ -239,6 +273,65 @@ void MainWindow::LoadLesionMask()
         wLesionMask++;
         wLesionMaskTemp++;
     }
+
+}
+//------------------------------------------------------------------------------------------------------------------------------
+cv::Mat MainWindow::LoadLesionMask(std::string PostFix)
+{
+
+    Mat LesionMaskOut;
+    QString ImageFolderQStr = ui->lineEditImageFolder->text();
+    path maskFilePath = ImageFolderQStr.toStdWString();
+    maskFilePath.append(FileToOpen.stem().string() + PostFix+ ".bmp");
+
+    if(!exists(maskFilePath))
+    {
+        ui->textEditOut->append("lesion mask file " + QString::fromStdWString(maskFilePath.wstring()) + " not exists");
+        return LesionMaskOut;
+    }
+
+
+    Mat LesionMaskTemp;
+    if(exists(maskFilePath))
+    {
+        LesionMaskTemp = imread(maskFilePath.string(), CV_LOAD_IMAGE_ANYDEPTH);
+        if(LesionMaskTemp.type() != CV_8U)
+        {
+            ui->textEditOut->append("lesion mask file " + QString::fromStdWString(maskFilePath.wstring())+" format improper");
+            return LesionMaskOut;
+        }
+
+        if(LesionMaskTemp.empty())
+        {
+            ui->textEditOut->append("mask file " + QString::fromStdWString(maskFilePath.wstring()) + "cannot be read");
+            return LesionMaskOut;
+        }
+        if(LesionMaskTemp.cols != ImIn.cols || LesionMaskTemp.rows != ImIn.rows)
+        {
+            ui->textEditOut->append("improper lesion mask size");
+            return LesionMaskOut;
+        }
+    }
+    else
+    {
+
+        ui->textEditOut->append("mask file " + QString::fromStdWString(maskFilePath.wstring()) + " not exists");
+        return LesionMaskOut;
+    }
+
+    LesionMaskOut = Mat::zeros(ImIn.rows, ImIn.cols, CV_16U);
+    unsigned char *wLesionMaskTemp = (unsigned char *)LesionMaskTemp.data;
+    unsigned short *wLesionMaskOut = (unsigned short *)LesionMaskOut.data;
+
+    int maxXY = ImIn.cols * ImIn.rows;
+    for(int i=0; i < maxXY; i++)
+    {
+        if(*wLesionMaskTemp == 255)
+            *wLesionMaskOut = 1;
+        wLesionMaskOut++;
+        wLesionMaskTemp++;
+    }
+    return LesionMaskOut;
 
 }
 //------------------------------------------------------------------------------------------------------------------------------
@@ -318,15 +411,19 @@ void MainWindow::ShowImages()
             ShowSolidRegionOnImage(Mask, ImIn).copyTo(ImToShow);
 
         rectangle(ImToShow, Rect(tilePositionX,tilePositionY, tileSizeX, tileSizeY), Scalar(0.0, 255.0, 0.0, 0.0), lineThickness);
-        if(lesionRegionCount)
+
+        int lesionIndex = NoCommonLiesionRegions[ui->spinBoxLesionNr->value()-1];
+
+        if(lesionIndex > 0)
         {
-            int lesRegNr = ui->spinBoxLesionNr->value();
-            rectangle(ImToShow, Rect(LesionRegionsParams[lesRegNr].minX,
-                                     LesionRegionsParams[lesRegNr].minY,
-                                     LesionRegionsParams[lesRegNr].maxX - LesionRegionsParams[lesRegNr].minX,
-                                     LesionRegionsParams[lesRegNr].maxY - LesionRegionsParams[lesRegNr].minY),
+            RegionParams LesionRegParams = LesionRegionsParams.GetRegionParams(lesionIndex);
+
+            rectangle(ImToShow, Rect(LesionRegParams.minX,
+                                     LesionRegParams.minY,
+                                     LesionRegParams.sizeX,
+                                     LesionRegParams.sizeY),
                       Scalar(0.0, 0.0, 255.0, 0.0),
-                      lineThickness);
+                      -1);
         }
         ShowsScaledImage(ImToShow,"Lesion mask on Image", scale);
     }
@@ -402,14 +499,29 @@ void MainWindow::ProcessImages()
         wMask++;
     }
     RenumberMask(CombinedMask, CommonMask);
-    MultiRegionsParams LesionRegionsParams(LesionMask);
-    MultiRegionsParams CommonRegionsParams(CommonMask);
+    LesionRegionsParams.GetFromMat(LesionMask);
+    //LesionRegionsParams();
+    CommonRegionsParams.GetFromMat(CommonMask);
+    RefRegionsParams.GetFromMat(ReffMask);
+
+    MultiRegionsParams CombinedRegionParams(CombinedMask);
+
+    reffRegionCount = RefRegionsParams.GetCountOfNonZeroArea();
+    lesionRegionCount = LesionRegionsParams.GetCountOfNonZeroArea();
+    commonRegionCount = CommonRegionsParams.GetCountOfNonZeroArea();
+    int combinedRegionCount = CombinedRegionParams.GetCountOfNonZeroArea();
+    ui->textEditOut->append("Combined region count = " + QString::number(combinedMaskCount));
+    ui->textEditOut->append("Combined region count = " + QString::number(combinedRegionCount));
+    ui->textEditOut->append("Refference region count = " + QString::number(reffRegionCount));
+    ui->textEditOut->append("Lession region count = " + QString::number(lesionRegionCount));
+    ui->textEditOut->append("Common region count = " + QString::number(commonRegionCount));
+
     NoCommonLiesionRegions.clear();
     for(int k = 1; k <= combinedMaskCount; k++)
     {
         RegionParams LesionRegParam = LesionRegionsParams.GetRegionParams(k);
         RegionParams CommonRegParam = CommonRegionsParams.GetRegionParams(k);
-        if(LesionRegParam.area && CommonRegParam.area == 0)
+        if(LesionRegParam.area && (CommonRegParam.area == 0))
             NoCommonLiesionRegions.push_back(k);
     }
 
@@ -428,6 +540,7 @@ void MainWindow::ProcessImages()
 
         ui->checkBoxLesionValid->setEnabled(false);
     }
+
 /*
     reffRegionCount = DivideSeparateRegions(ReffMask, 10);
     lesionRegionCount = DivideSeparateRegions(LesionMask, 10);
@@ -585,7 +698,7 @@ void MainWindow::GetTile()
 void MainWindow::GetLesion()
 {
 
-    if(LesionRegionsParams == nullptr)
+    if(NoCommonLiesionRegions.empty())
     {
         destroyWindow("Lesion");
         return;
@@ -605,30 +718,25 @@ void MainWindow::GetLesion()
         destroyWindow("Lesion");
         return;
     }
-    int lesionIndex = NoCommonLiesionRegions[ui->spinBoxLesionNr->value()];
+    int lesionIndex = NoCommonLiesionRegions[ui->spinBoxLesionNr->value()-1];
 
     if(lesionIndex<=0)
     {
         destroyWindow("Lesion");
         return;
-
     }
 
-    int lesionTilePositionX, lesionTilePositionY, lesionTileSizeX, lesionTileSizeY;
+    RegionParams LesionRegParams = LesionRegionsParams.GetRegionParams(lesionIndex);
 
-    lesionTilePositionX =  LesionRegionsParams[lesionIndex].minX;
-    lesionTilePositionY = LesionRegionsParams[lesionIndex].minY;
-    lesionTileSizeX = LesionRegionsParams[lesionIndex].maxX - LesionRegionsParams[lesionIndex].minX + 1;
-    lesionTileSizeY = LesionRegionsParams[lesionIndex].maxY - LesionRegionsParams[lesionIndex].minY + 1;
-
-    ui->checkBoxLesionValid->setChecked(LesionRegionsParams[lesionIndex].valid);
+    ui->checkBoxLesionValid->setChecked(LesionRegParams.valid);
 
     Mat TileIm, TileReffMask, TileLesionMask, TileMask;
 
-    ImIn(Rect(lesionTilePositionX, lesionTilePositionY, lesionTileSizeX, lesionTileSizeY)).copyTo(TileIm);
-    ReffMask(Rect(lesionTilePositionX, lesionTilePositionY, lesionTileSizeX, lesionTileSizeY)).copyTo(TileReffMask);
-    LesionMask(Rect(lesionTilePositionX, lesionTilePositionY, lesionTileSizeX, lesionTileSizeY)).copyTo(TileLesionMask);
-    Mask(Rect(lesionTilePositionX, lesionTilePositionY, lesionTileSizeX, lesionTileSizeY)).copyTo(TileMask);
+
+    ImIn(Rect(LesionRegParams.minX,LesionRegParams.minY,LesionRegParams.sizeX,LesionRegParams.sizeY)).copyTo(TileIm);
+    ReffMask(Rect(LesionRegParams.minX, LesionRegParams.minY, LesionRegParams.sizeX, LesionRegParams.sizeY)).copyTo(TileReffMask);
+    LesionMask(Rect(LesionRegParams.minX, LesionRegParams.minY, LesionRegParams.sizeX, LesionRegParams.sizeY)).copyTo(TileLesionMask);
+    Mask(Rect(LesionRegParams.minX, LesionRegParams.minY, LesionRegParams.sizeX, LesionRegParams.sizeY)).copyTo(TileMask);
 
     Mat ImShow;
     if(TileLesionMask.empty() || TileIm.empty())
@@ -645,8 +753,9 @@ void MainWindow::GetLesion()
         break;
     }
     ShowsScaledImage(ImShow,"Lesion", ui->doubleSpinBoxLesionScale->value());
-
-
+    ui->spinBoxTileX->setValue(LesionRegParams.massCenterX - ui->spinBoxTileSize->value()/2);
+    ui->spinBoxTileY->setValue(LesionRegParams.massCenterY - ui->spinBoxTileSize->value()/2);
+    GetTile();
     //ShowImages();
 }
 //------------------------------------------------------------------------------------------------------------------------------
@@ -795,44 +904,89 @@ void MainWindow::on_spinBoxLesionNr_valueChanged(int arg1)
 
 void MainWindow::on_checkBoxLesionValid_clicked(bool checked)
 {
-    if(LesionRegionsParams == nullptr)
+    int lesionIndex = NoCommonLiesionRegions[ui->spinBoxLesionNr->value()-1];
+    if(lesionIndex > 0)
     {
-       return;
+        LesionRegionsParams.SetValid(lesionIndex,checked);
     }
 
-    int lesionIndex = ui->spinBoxLesionNr->value();
-
-    LesionRegionsParams[lesionIndex].valid = checked;
 }
 
 void MainWindow::on_pushButtonGetStatistics_clicked()
 {
-    int validRegionCount = 0;
-    ui->textEditOut->clear();
-    if (LesionRegionsParams != nullptr)
-    {
-        LesionRegionsParams[0].valid = false;
 
-        for(int k = 1; k <= lesionRegionCount; k++)
-        {
-            LesionRegionsParams[k].massCenterX /= LesionRegionsParams[k].area;
-            LesionRegionsParams[k].massCenterY /= LesionRegionsParams[k].area;
-            if(LesionRegionsParams[k].valid)
-                validRegionCount++;
-        }
-    }
-    ui->textEditOut->append("Valid region count = " + QString::number(validRegionCount));
-    ui->textEditOut->append("name\tRef#\tTP\tFN\tFP\tles#\tvalid#");
+    int nonValidRegionCount = LesionRegionsParams.GetCountOfNonZeroAreaNonValid();
+
+    ui->textEditOut->clear();
+    ui->textEditOut->append("name\tRef#\tTP\tFN\tFP\tles#\tvalid not common#");
     ui->textEditOut->append(QString::fromStdString( FileToOpen.stem().string()) + "\t"
                             + QString::number(reffRegionCount) + "\t"
                             + QString::number(commonRegionCount) + "\t"
-                            + QString::number (reffRegionCount - commonRegionCount)+ "\t"
-                            + QString::number(lesionRegionCount - validRegionCount)+ "\t"
+                            + QString::number(reffRegionCount - commonRegionCount)+ "\t"
+                            + QString::number(nonValidRegionCount)+ "\t"
                             + QString::number(lesionRegionCount)+ "\t"
-                            + QString::number(validRegionCount));
+                            + QString::number(lesionRegionCount- nonValidRegionCount - commonRegionCount));
+
 }
 
 void MainWindow::on_doubleSpinBoxLesionScale_valueChanged(double arg1)
 {
     GetLesion();
+}
+
+void MainWindow::on_checkBoxGrabKeyboard_toggled(bool checked)
+{
+    if(checked)
+        ui->widgetImageWhole->grabKeyboard();
+    else
+        ui->widgetImageWhole->releaseKeyboard();
+}
+
+void MainWindow::on_widgetImageWhole_on_KeyPressed(int button)
+{
+    int lesionIndex = NoCommonLiesionRegions[ui->spinBoxLesionNr->value()-1];
+    switch (button)
+    {
+
+    case Qt::Key_Up:
+        ui->spinBoxLesionNr->setValue(ui->spinBoxLesionNr->value()+1);
+        break;
+    case Qt::Key_Down:
+        ui->spinBoxLesionNr->setValue(ui->spinBoxLesionNr->value()-1);
+        break;
+
+    case Qt::Key_Space:
+        ui->checkBoxLesionValid->setChecked(false);
+        if(lesionIndex > 0)
+        {
+            LesionRegionsParams.SetValid(lesionIndex,false);
+        }
+        break;
+    case Qt::Key_X:
+        ui->checkBoxLesionValid->setChecked(true);
+        if(lesionIndex > 0)
+        {
+            LesionRegionsParams.SetValid(lesionIndex,true);
+        }
+        break;
+
+
+    default:
+        break;
+    }
+}
+
+void MainWindow::on_pushButtonReload_clicked()
+{
+    ReadImage();
+}
+
+void MainWindow::on_pushButtonSaveOut_clicked()
+{
+    QString ImageFolderQStr = ui->lineEditImageFolder->text();
+    path outFilePath = ImageFolderQStr.toStdWString();
+
+    outFilePath.append(FileToOpen.stem().string() + ui->lineEditPostFix->text().toStdString() + ".jpg");
+    Mat ImToSave = ShowSolidRegionOnImage(Mask, ImIn);
+    imwrite(outFilePath.string(),ImToSave);
 }

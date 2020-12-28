@@ -25,6 +25,8 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
+typedef MazdaRoi<unsigned int, 2> MR2DType;
+
 using namespace boost;
 using namespace std;
 using namespace boost::filesystem;
@@ -60,7 +62,72 @@ int RenumberMask(cv::Mat MaskMaster, cv::Mat MaskSlave)
     }
     return 1;
 }
+//------------------------------------------------------------------------------------------------------------------------------
+bool SaveQMaZdaROI(cv::Mat Mask, std::string FileName)
+{
+    if(Mask.empty())
+        return 0;
+    if(Mask.type() != CV_16U)
+        return 0;
+    int maxX = Mask.cols;
+    int maxY = Mask.rows;
+    int maxXY = maxX * maxY;
 
+    int *RoiSizes = new int[65536];
+    for(unsigned int k = 0; k<65536; k++)
+    {
+        RoiSizes[k] = 0;
+    }
+    uint16_t *wMask = (uint16_t *)Mask.data;
+    for(int i = 0; i< maxXY; i++)
+    {
+        RoiSizes[*wMask]++;
+        wMask++;
+    }
+
+    vector <MR2DType*> ROIVect;
+    int begin[MR2DType::Dimensions];
+    int end[MR2DType::Dimensions];
+    begin[0] = 0;
+    begin[1] = 0;
+    end[0] = maxX-1;
+    end[1] = maxY-1;
+
+    MR2DType *ROI;
+
+
+    for(int roiNr = 1; roiNr <= 65535; roiNr++)
+    {
+        if(RoiSizes[roiNr])
+        {
+            ROI = new MR2DType(begin, end);
+
+            MazdaRoiIterator<MR2DType> iteratorKL(ROI);
+            wMask = (uint16_t *)Mask.data;
+            while(! iteratorKL.IsBehind())
+            {
+                if (*wMask == roiNr)
+                    iteratorKL.SetPixel();
+                ++iteratorKL;
+                wMask++;
+            }
+
+            ROI->SetName("R" + ItoStrLZ(roiNr,5));
+            ROI->SetColor(RegColorsRGB[(roiNr-1)%16]);
+
+            ROIVect.push_back(ROI);
+        }
+    }
+
+    MazdaRoiIO<MR2DType>::Write(FileName, &ROIVect, NULL);
+    while(ROIVect.size() > 0)
+    {
+         delete ROIVect.back();
+         ROIVect.pop_back();
+    }
+    delete [] RoiSizes;
+    return 1;
+}
 
 //------------------------------------------------------------------------------------------------------------------------------
 //------------------------------------------------------------------------------------------------------------------------------
@@ -152,8 +219,11 @@ void MainWindow::MaskFusion()
     LesionMask2 =  LoadLesionMask("MaSt");
     LesionMask3 =  LoadLesionMask("MiKo");
 
-    LesionMask = Combine3Regions(LesionMask1, LesionMask2, LesionMask3);
-    int CombinedRegionCount = DivideSeparateRegions(LesionMask, 10);
+    Mat CombinedMask = Combine3RegionsTo8Bit(LesionMask1, LesionMask2, LesionMask3);
+    if(CombinedMask.empty())
+        return;
+    int combinedMaskCount = connectedComponents(CombinedMask,LesionMask,8,CV_16U);
+
     RenumberMask(LesionMask, LesionMask1);
     RenumberMask(LesionMask, LesionMask2);
     RenumberMask(LesionMask, LesionMask3);
@@ -162,7 +232,7 @@ void MainWindow::MaskFusion()
     MultiRegionsParams LesionMask2Params(LesionMask2);
     MultiRegionsParams LesionMask3Params(LesionMask3);
 
-    for(unsigned short k = 1; k <= CombinedRegionCount; k++)
+    for(unsigned short k = 1; k <= combinedMaskCount; k++)
     {
         RegionParams Lesion1RegParams = LesionMask1Params.GetRegionParams(k);
         RegionParams Lesion2RegParams = LesionMask2Params.GetRegionParams(k);
@@ -173,7 +243,6 @@ void MainWindow::MaskFusion()
             (Lesion2RegParams.area && Lesion3RegParams.area)))
             DeleteRegionFromImage(LesionMask,  k);
     }
-
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
@@ -268,7 +337,7 @@ void MainWindow::LoadLesionMask()
     int maxXY = ImIn.cols * ImIn.rows;
     for(int i=0; i < maxXY; i++)
     {
-        if(*wLesionMaskTemp == 255)
+        if(*wLesionMaskTemp > 0)
             *wLesionMask = 1;
         wLesionMask++;
         wLesionMaskTemp++;
@@ -326,13 +395,58 @@ cv::Mat MainWindow::LoadLesionMask(std::string PostFix)
     int maxXY = ImIn.cols * ImIn.rows;
     for(int i=0; i < maxXY; i++)
     {
-        if(*wLesionMaskTemp == 255)
+        if(*wLesionMaskTemp > 0)
             *wLesionMaskOut = 1;
         wLesionMaskOut++;
         wLesionMaskTemp++;
     }
     return LesionMaskOut;
 
+}
+//------------------------------------------------------------------------------------------------------------------------------
+cv::Mat MainWindow::LoadLesionMask8bit(std::string PostFix)
+{
+
+    Mat LesionMaskOut;
+    QString ImageFolderQStr = ui->lineEditImageFolder->text();
+    path maskFilePath = ImageFolderQStr.toStdWString();
+    maskFilePath.append(FileToOpen.stem().string() + PostFix+ ".bmp");
+
+    if(!exists(maskFilePath))
+    {
+        ui->textEditOut->append("lesion mask file " + QString::fromStdWString(maskFilePath.wstring()) + " not exists");
+        return LesionMaskOut;
+    }
+
+
+    Mat LesionMaskTemp;
+    if(exists(maskFilePath))
+    {
+        LesionMaskTemp = imread(maskFilePath.string(), CV_LOAD_IMAGE_ANYDEPTH);
+        if(LesionMaskTemp.type() != CV_8U)
+        {
+            ui->textEditOut->append("lesion mask file " + QString::fromStdWString(maskFilePath.wstring())+" format improper");
+            return LesionMaskOut;
+        }
+
+        if(LesionMaskTemp.empty())
+        {
+            ui->textEditOut->append("mask file " + QString::fromStdWString(maskFilePath.wstring()) + "cannot be read");
+            return LesionMaskOut;
+        }
+        if(LesionMaskTemp.cols != ImIn.cols || LesionMaskTemp.rows != ImIn.rows)
+        {
+            ui->textEditOut->append("improper lesion mask size");
+            return LesionMaskOut;
+        }
+    }
+    else
+    {
+
+        ui->textEditOut->append("mask file " + QString::fromStdWString(maskFilePath.wstring()) + " not exists");
+        return LesionMaskOut;
+    }
+    return LesionMaskTemp;
 }
 //------------------------------------------------------------------------------------------------------------------------------
 void MainWindow::ShowsScaledImage(Mat Im, string ImWindowName, double displayScale)
@@ -448,12 +562,14 @@ void MainWindow::ShowImages()
 void MainWindow::ProcessImages()
 {
 
-    Mat CombinedMask = Combine2Regions(ReffMask, LesionMask);
+    Mat CombinedMaskTemp = Combine2RegionsTo8Bit(ReffMask, LesionMask);
 
-    if(CombinedMask.empty())
+    if(CombinedMaskTemp.empty())
         return;
 
-    int combinedMaskCount = DivideSeparateRegions(CombinedMask, 10);
+    //int combinedMaskCount = DivideSeparateRegions(CombinedMask, 10);
+
+    int combinedMaskCount = connectedComponents(CombinedMaskTemp,CombinedMask,8,CV_16U);
     RenumberMask(CombinedMask, ReffMask);
     RenumberMask(CombinedMask, LesionMask);
 
@@ -541,110 +657,131 @@ void MainWindow::ProcessImages()
         ui->checkBoxLesionValid->setEnabled(false);
     }
 
-/*
-    reffRegionCount = DivideSeparateRegions(ReffMask, 10);
-    lesionRegionCount = DivideSeparateRegions(LesionMask, 10);
-    ui->textEditOut->append("Refference region count = " + QString::number(reffRegionCount));
-    ui->textEditOut->append("Lession region count = " + QString::number(lesionRegionCount));
 
-    int maxX = ReffMask.cols;
-    int maxY = ReffMask.rows;
-    int maxXY = maxX * maxY;
-
-    Mask =       Mat::zeros(maxY,maxX, CV_16U);
-    CommonMask = Mat::zeros(maxY,maxX, CV_16U);
-
-    unsigned short * wReffMask;
-    unsigned short * wLesionMask;
-    unsigned short * wMask;
-    unsigned short * wCommonMask;
-
-    wReffMask = (unsigned short *)ReffMask.data;
-    wLesionMask = (unsigned short *)LesionMask.data;
-    wMask = (unsigned short *)Mask.data;
-    wCommonMask = (unsigned short *)CommonMask.data;
-
-    for(int i = 0; i < maxXY; i++)
+    for(int k = 1; k <= combinedMaskCount; k++)
     {
-        if(*wLesionMask && *wReffMask)
+        RegionParams LesionRegParam = LesionRegionsParams.GetRegionParams(k);
+        RegionParams CommonRegParam = CommonRegionsParams.GetRegionParams(k);
+        RegionParams ReffRegParam = RefRegionsParams.GetRegionParams(k);
+        if(CommonRegParam.area != 0)
         {
-            *wCommonMask = 1;
-            *wMask = 4;
-        }
-        else
-        {
-            if(*wLesionMask)
-            {
-                *wMask = 2;
-            }
-            if(*wReffMask)
-            {
-                *wMask = 3;
-            }
-        }
+            double reffCirDia = sqrt(pow((double)(ReffRegParam.maxX - ReffRegParam.minX), 2.0) +
+                                     pow((double)(ReffRegParam.maxY - ReffRegParam.minY), 2.0));
 
-        wReffMask++;
-        wLesionMask++;
-        wCommonMask++;
-        wMask++;
+            double lesionCirDia = sqrt(pow((double)(LesionRegParam.maxX - LesionRegParam.minX), 2.0) +
+                                       pow((double)(LesionRegParam.maxY - LesionRegParam.minY), 2.0));
+
+            Mat LesionMaskSmall, ReffMaskSmall;
+
+            ReffMask(Rect(ReffRegParam.minX, ReffRegParam.minY,
+                          ReffRegParam.sizeX, ReffRegParam.sizeY)).copyTo(ReffMaskSmall);
+            KeepOneRegion(ReffMaskSmall, k);
+
+            RotatedRect fittedRectReff;
+
+            fittedRectReff.angle = 0.0;
+            fittedRectReff.center = Point2f((float)(ReffMaskSmall.cols)/2,(float)(ReffMaskSmall.rows)/2);
+            fittedRectReff.size = Size2f(100.0,100.0);
+
+
+
+            Mat ImTemp;
+            vector<vector<Point> > contours;
+            vector<Vec4i> hierarchy;
+            Mat pointsF;
+
+            ReffMaskSmall.convertTo(ImTemp,CV_8U);
+            findContours(ImTemp,contours,hierarchy,CV_RETR_LIST,CHAIN_APPROX_NONE);
+            if(contours.size())
+            {
+                int maxSize = 0;
+                int maxContour = 0;
+                for(int i = 0;i<contours.size();i++)
+                {
+                    if(maxSize < contours[i].size())
+                    {
+                        maxSize = contours[i].size();
+                        maxContour = i;
+                    }
+                }
+                if(maxSize > 10)
+                {
+                    Mat(contours[maxContour]).convertTo(pointsF, CV_32F);
+                    fittedRectReff = fitEllipse(pointsF);
+                }
+            }
+
+            contours.clear();
+            hierarchy.clear();
+            ImTemp.release();
+
+                // rotate images
+            double reffEllAngle = fittedRectReff.angle;
+            double reffEllAxLong = fittedRectReff.size.height;
+            double reffEllAxShort = fittedRectReff.size.width;
+
+
+
+            LesionMask(Rect(LesionRegParam.minX, LesionRegParam.minY,
+                            LesionRegParam.sizeX, LesionRegParam.sizeX)).copyTo(LesionMaskSmall);
+            KeepOneRegion(LesionMaskSmall, k);
+
+            RotatedRect fittedRectLesion;
+
+            fittedRectLesion.angle = 0.0;
+            fittedRectLesion.center = Point2f((float)(LesionMaskSmall.cols)/2,(float)(LesionMaskSmall.rows)/2);
+            fittedRectLesion.size = Size2f(100.0,100.0);
+
+            LesionMaskSmall.convertTo(ImTemp,CV_8U);
+            findContours(ImTemp,contours,hierarchy,CV_RETR_LIST,CHAIN_APPROX_NONE);
+            if(contours.size())
+            {
+                int maxSize = 0;
+                int maxContour = 0;
+                for(int i = 0;i<contours.size();i++)
+                {
+                    if(maxSize < contours[i].size())
+                    {
+                        maxSize = contours[i].size();
+                        maxContour = i;
+                    }
+                }
+                if(maxSize > 10)
+                {
+                    Mat(contours[maxContour]).convertTo(pointsF, CV_32F);
+                    fittedRectLesion = fitEllipse(pointsF);
+                }
+            }
+
+            contours.clear();
+            hierarchy.clear();
+            ImTemp.release();
+
+                // rotate images
+            double lesionEllAngle = fittedRectLesion.angle;
+            double lesionEllAxLong = fittedRectLesion.size.height;
+            double lesionEllAxShort = fittedRectLesion.size.width;
+
+
+
+            ui->textEditOut->append(QString::number(k) + "\t" +
+                                    QString::number(reffCirDia) + "\t" +
+                                    QString::number(reffEllAxLong) + "\t" +
+                                    QString::number(reffEllAxShort) + "\t" +
+                                    QString::number(reffEllAngle) + "\t" +
+                                    QString::number(lesionCirDia) + "\t" +
+                                    QString::number(lesionEllAxLong) + "\t" +
+                                    QString::number(lesionEllAxShort) + "\t" +
+                                    QString::number(lesionEllAngle) + "\t");
+
+        }
     }
-
-    commonRegionCount = DivideSeparateRegions(CommonMask, 0);
-    ui->textEditOut->append("Common region count = " + QString::number(commonRegionCount));
-
-    wReffMask = (unsigned short *)ReffMask.data;
-    wLesionMask = (unsigned short *)LesionMask.data;
-    wMask = (unsigned short *)Mask.data;
-    wCommonMask = (unsigned short *)CommonMask.data;
-
-    delete [] LesionRegionsParams;
-    LesionRegionsParams = nullptr;
-
-    if(lesionRegionCount)
+    if(ui->checkBox3Masks->checkState())
     {
-        LesionRegionsParams = new RegionParams[lesionRegionCount + 1];
-        for(int k = 0; k <= lesionRegionCount; k++)
-        {
-            LesionRegionsParams[k].Init();
-        }
-        for(int y = 0; y < maxY; y++)
-        {
-            for(int x = 0; x < maxX; x++)
-            {
-                int regionIndex = *wLesionMask;
-                LesionRegionsParams[regionIndex].area++;
-                if(LesionRegionsParams[regionIndex].maxX < x)
-                    LesionRegionsParams[regionIndex].maxX = x;
-                if(LesionRegionsParams[regionIndex].maxY < y)
-                    LesionRegionsParams[regionIndex].maxY = y;
-                if(LesionRegionsParams[regionIndex].minX > x)
-                    LesionRegionsParams[regionIndex].minX = x;
-                if(LesionRegionsParams[regionIndex].minY > y)
-                    LesionRegionsParams[regionIndex].minY = y;
-                LesionRegionsParams[regionIndex].massCenterX += x;
-                LesionRegionsParams[regionIndex].massCenterY += y;
-
-                wLesionMask++;
-            }
-        }
-
-
-        ui->spinBoxLesionNr->setMinimum(1);
-        ui->spinBoxLesionNr->setMaximum(lesionRegionCount);
-        ui->checkBoxLesionValid->setEnabled(true);
-        ui->spinBoxLesionNr->setEnabled(true);
-
-
+        RenumberMask(CombinedMask, LesionMask1);
+        RenumberMask(CombinedMask, LesionMask2);
+        RenumberMask(CombinedMask, LesionMask3);
     }
-    else
-    {
-        ui->spinBoxLesionNr->setEnabled(false);
-        ui->spinBoxLesionNr->setMinimum(0);
-        ui->spinBoxLesionNr->setMaximum(0);
-
-        ui->checkBoxLesionValid->setEnabled(false);
-    }
-*/
     ShowImages();
 }
 //------------------------------------------------------------------------------------------------------------------------------
@@ -989,4 +1126,112 @@ void MainWindow::on_pushButtonSaveOut_clicked()
     outFilePath.append(FileToOpen.stem().string() + ui->lineEditPostFix->text().toStdString() + ".jpg");
     Mat ImToSave = ShowSolidRegionOnImage(Mask, ImIn);
     imwrite(outFilePath.string(),ImToSave);
+}
+
+void MainWindow::on_pushButtonSaveQMaZdaStyleRoi_clicked()
+{
+    if(!ui->checkBox3Masks->checkState())
+    {
+        ui->textEditOut->append("this option is validd for 3 mask mode only");
+        return;
+    }
+    if(LesionMask1.empty())
+    {
+        ui->textEditOut->append("MaKo data unavalible");
+        return;
+    }
+    if(LesionMask2.empty())
+    {
+        ui->textEditOut->append("MaSt data unavalible");
+        return;
+    }
+    if(LesionMask3.empty())
+    {
+        ui->textEditOut->append("MiKo data unavalible");
+        return;
+    }
+
+    unsigned short *CommonRegSizes = new unsigned short[65536];
+
+    for (unsigned int regNr = 0; regNr < 65536; regNr++)
+    {
+        CommonRegSizes[regNr] = 0;
+    }
+
+    int maxXY = CommonMask.cols * CommonMask.rows;
+
+    uint16_t *wCommonMask = (uint16_t *)CommonMask.data;
+    //unsigned short oldRegNr;
+    for (int i = 0; i < maxXY; i++)
+    {
+        if(*wCommonMask)
+            CommonRegSizes[*wCommonMask]++;
+        wCommonMask++;
+    }
+
+    unsigned short *Exchange = new unsigned short[65536];
+    for (unsigned int regNr = 0; regNr < 65536; regNr++)
+    {
+        Exchange[regNr] = 0;
+    }
+
+    unsigned short newRegNR = 1;
+    for (unsigned int regNr = 0; regNr < 65536; regNr++)
+    {
+        if(CommonRegSizes[regNr] > 5)
+        {
+            Exchange[regNr] = newRegNR;
+            newRegNR ++;
+        }
+    }
+
+    Mat CombinedMaskReduced;
+    CombinedMask.copyTo(CombinedMaskReduced);
+    uint16_t *wCombinedMaskReduced = (uint16_t *)CombinedMaskReduced.data;
+    for (int i = 0; i < maxXY; i++)
+    {
+        if(*wCombinedMaskReduced)
+            *wCombinedMaskReduced = Exchange[*wCombinedMaskReduced];
+        wCombinedMaskReduced++;
+    }
+    delete[] Exchange;
+    delete[] CommonRegSizes;
+
+//-------------------------To delete-START---------------------------
+    Mat ImToShow;
+    ShowSolidRegionOnImage(CombinedMaskReduced, ImIn).copyTo(ImToShow);
+    double scale = 1 / ui->doubleSpinBoxImageScale->value();
+
+    ShowsScaledImage(ImToShow,"Reduced Combined Mask on Image", scale);
+//-------------------------To delete-END---------------------------
+
+    RenumberMask(CombinedMaskReduced,LesionMask);
+    RenumberMask(CombinedMaskReduced,LesionMask1);
+    RenumberMask(CombinedMaskReduced,LesionMask2);
+    RenumberMask(CombinedMaskReduced,LesionMask3);
+    RenumberMask(CombinedMaskReduced,ReffMask);
+    RenumberMask(CombinedMaskReduced,CommonMask);
+
+    QString ImageFolderQStr = ui->lineEditImageFolder->text();
+    path QMazdaRoiFilePath;
+
+    QMazdaRoiFilePath = ImageFolderQStr.toStdWString();
+    QMazdaRoiFilePath.append(FileToOpen.stem().string() + "Comb.roi");
+    SaveQMaZdaROI(LesionMask, QMazdaRoiFilePath.string());
+
+    QMazdaRoiFilePath = ImageFolderQStr.toStdWString();
+    QMazdaRoiFilePath.append(FileToOpen.stem().string() + "MaKo.roi");
+    SaveQMaZdaROI(LesionMask1, QMazdaRoiFilePath.string());
+
+    QMazdaRoiFilePath = ImageFolderQStr.toStdWString();
+    QMazdaRoiFilePath.append(FileToOpen.stem().string() + "MaSt.roi");
+    SaveQMaZdaROI(LesionMask2, QMazdaRoiFilePath.string());
+
+    QMazdaRoiFilePath = ImageFolderQStr.toStdWString();
+    QMazdaRoiFilePath.append(FileToOpen.stem().string() + "MiKo.roi");
+    SaveQMaZdaROI(LesionMask3, QMazdaRoiFilePath.string());
+
+    QMazdaRoiFilePath = ImageFolderQStr.toStdWString();
+    QMazdaRoiFilePath.append(FileToOpen.stem().string() + "Ref.roi");
+    SaveQMaZdaROI(ReffMask, QMazdaRoiFilePath.string());
 }

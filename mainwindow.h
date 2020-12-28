@@ -59,6 +59,8 @@ private slots:
 
     void on_pushButtonSaveOut_clicked();
 
+    void on_pushButtonSaveQMaZdaStyleRoi_clicked();
+
 private:
     Ui::MainWindow *ui;
 
@@ -77,6 +79,7 @@ private:
     cv::Mat ReffMask;
     cv::Mat Mask;
     cv::Mat CommonMask;
+    cv::Mat CombinedMask;
 
     double minIm;
     double maxIm;
@@ -104,6 +107,7 @@ private:
     void MaskFusion();
     void LoadLesionMask();
     cv::Mat LoadLesionMask(std::string PostFix);
+    cv::Mat LoadLesionMask8bit(std::string PostFix);
     void ProcessImages();
     void GetTile();
     void GetLesion();

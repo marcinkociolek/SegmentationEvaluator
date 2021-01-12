@@ -61,6 +61,12 @@ private slots:
 
     void on_pushButtonSaveQMaZdaStyleRoi_clicked();
 
+    void on_pushButtonSaveReport_clicked();
+
+    void on_spinBoxReffNr_valueChanged(int arg1);
+
+    void on_pushButtonCLRRep_clicked();
+
 private:
     Ui::MainWindow *ui;
 
@@ -80,6 +86,7 @@ private:
     cv::Mat Mask;
     cv::Mat CommonMask;
     cv::Mat CombinedMask;
+    cv::Mat MaskBcg;
 
     double minIm;
     double maxIm;
@@ -95,9 +102,28 @@ private:
     int lesionRegionCount;
     int commonRegionCount;
 
+    int aClassRefCount;
+    int aClassTPCount;
+    int aClassFNCount;
+
+    int bClassRefCount;
+    int bClassTPCount;
+    int bClassFNCount;
+
+    int cClassRefCount;
+    int cClassTPCount;
+    int cClassFNCount;
+
+    int totalRefCount;
+    int totalTPCount;
+    int totalFNCount;
+    int totalFPCount;
+
     //MultiRegionsParams LesionRegionsParams;
 
     std::vector<int>NoCommonLiesionRegions;
+    std::vector<int>ReffLiesionRegions;
+
 
     void OpenImageFolder();
     void ReadImage();
@@ -111,6 +137,7 @@ private:
     void ProcessImages();
     void GetTile();
     void GetLesion();
+    void GetReff();
     void AdiustTilePositionSpinboxes();
     void ScaleImMiniature();
 };

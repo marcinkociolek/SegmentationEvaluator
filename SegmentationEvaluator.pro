@@ -27,19 +27,25 @@ CONFIG += c++11
 SOURCES += \
         main.cpp \
         mainwindow.cpp\
+        ../SkinLesionDiscovery/segmentMK.cpp \
         ../../ProjectsLib/LibMarcin/myimagewidget.cpp \
         ../../ProjectsLib/LibMarcin/NormalizationLib.cpp \
         ../../ProjectsLib/LibMarcin/DispLib.cpp \
         ../../ProjectsLib/LibMarcin/StringFcLib.cpp \
-        ../../ProjectsLib/LibMarcin/RegionU16Lib.cpp
+        ../../ProjectsLib/LibMarcin/RegionU16Lib.cpp \
+        ../../ProjectsLib/LibMarcin/histograms.cpp \
+        ../../ProjectsLib/LibMarcin/gradient.cpp
 
 HEADERS += \
         mainwindow.h\
+        ../SkinLesionDiscovery/segmentMK.h \
         ../../ProjectsLib/LibMarcin/myimagewidget.h \
         ../../ProjectsLib/LibMarcin/NormalizationLib.h \
         ../../ProjectsLib/LibMarcin/DispLib.h \
         ../../ProjectsLib/LibMarcin/StringFcLib.h \
-        ../../ProjectsLib/LibMarcin/RegionU16Lib.h
+        ../../ProjectsLib/LibMarcin/RegionU16Lib.h \
+        ../../ProjectsLib/LibMarcin/histograms.h \
+        ../../ProjectsLib/LibMarcin/gradient.h
 
 
 FORMS += \
@@ -48,6 +54,7 @@ FORMS += \
 win32: INCLUDEPATH += C:\opencv\build\include\
 win32: INCLUDEPATH += C:\boost_1_66_0\
 win32: INCLUDEPATH += ..\..\ProjectsLib\LibMarcin\
+win32: INCLUDEPATH += ../SkinLesionDiscovery\
 win32: INCLUDEPATH += C:\LibTiff\
 win32: INCLUDEPATH += ../../ProjectsLibForein/LibPMS/
 win32: INCLUDEPATH += ../../ProjectsLibForein/LibPMS/

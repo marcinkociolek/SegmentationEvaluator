@@ -69,6 +69,8 @@ private slots:
 
     void on_pushButtonProcesFollowUp_clicked();
 
+    void on_spinBoxFU_valueChanged(int arg1);
+
 private:
     Ui::MainWindow *ui;
 
@@ -126,6 +128,10 @@ private:
     std::vector<int>NoCommonLiesionRegions;
     std::vector<int>ReffLiesionRegions;
 
+    std::vector<int> Lesion1PosXVect;
+    std::vector<int> Lesion1PosYVect;
+    std::vector<int> Lesion2PosXVect;
+    std::vector<int> Lesion2PosYVect;
 
     void OpenImageFolder();
     void ReadImage();

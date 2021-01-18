@@ -1601,6 +1601,11 @@ void MainWindow::on_pushButtonCLRRep_clicked()
 
 void MainWindow::on_pushButtonProcesFollowUp_clicked()
 {
+    Lesion1PosXVect.clear();
+    Lesion1PosYVect.clear();
+    Lesion2PosXVect.clear();
+    Lesion2PosYVect.clear();
+
     path TextFile = ui->lineEditImageFolder->text().toStdWString();
     TextFile.append(FileToOpen.stem().string() + ".txt");
 
@@ -1619,8 +1624,58 @@ void MainWindow::on_pushButtonProcesFollowUp_clicked()
     while(inFile.good())
     {
         getline(inFile, Line);
-        Line.substr(3, )
+        if(Line.empty())
+            continue;
+        double xPos1 =  round(stod( Line.substr(3, 15)));
+        if(xPos1 < 0)
+            xPos1 = 0;
+        if(xPos1 > ImIn.cols)
+            xPos1 = ImIn.cols;
+        double yPos1 =  round(stod( Line.substr(20, 32)));
+        if(yPos1 < 0)
+            yPos1 = 0;
+        if(yPos1 > ImIn.rows)
+            yPos1 = ImIn.rows;
+        double xPos2 =  round(stod( Line.substr(37, 49)));
+        if(xPos2 < 0)
+            xPos2 = 0;
+        if(xPos2 > ImIn.cols)
+            xPos2 = ImIn.cols;
+        double yPos2 =  round(stod( Line.substr(54, 66)));
+        if(yPos2 < 0)
+            yPos2 = 0;
+        if(yPos2 > ImIn.rows)
+            yPos2 = ImIn.rows;
+
+        ui->textEditOut->append(QString::number(xPos1) + "\t" + QString::number(yPos1) + "\t" + QString::number(xPos2) + "\t" + QString::number(yPos2));
+        Lesion1PosXVect.push_back((int)xPos1);
+        Lesion1PosYVect.push_back((int)yPos1);
+        Lesion2PosXVect.push_back((int)xPos2);
+        Lesion2PosYVect.push_back((int)yPos2);
+
     }
     inFile.close();
+
+    if(Lesion1PosXVect.size())
+    {
+        ui->spinBoxFU->setMaximum(Lesion1PosXVect.size() - 1);
+        ui->spinBoxFU->setEnabled(true);
+    }
+    else
+    {
+        ui->spinBoxFU->setMaximum(0);
+        ui->spinBoxFU->setEnabled(false);
+    }
+
+
+
+}
+
+void MainWindow::on_spinBoxFU_valueChanged(int arg1)
+{
+    ui->spinBoxTileX->setValue(Lesion1PosXVect[arg1] - ui->spinBoxTileSize->value()/2);
+    ui->spinBoxTileY->setValue(Lesion1PosYVect[arg1] - ui->spinBoxTileSize->value()/2);
+    GetTile();
+    ShowImages();
 
 }

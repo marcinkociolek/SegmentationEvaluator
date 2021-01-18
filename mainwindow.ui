@@ -613,7 +613,7 @@
       <x>750</x>
       <y>80</y>
       <width>161</width>
-      <height>571</height>
+      <height>631</height>
      </rect>
     </property>
     <property name="frameShape">
@@ -884,7 +884,7 @@
       </rect>
      </property>
      <property name="text">
-      <string>_seg_MaSt.tiff</string>
+      <string>MaSt.png</string>
      </property>
     </widget>
     <widget class="QPushButton" name="pushButtonReload">
@@ -1007,6 +1007,29 @@
      </property>
      <property name="text">
       <string>Process FU</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>560</y>
+       <width>47</width>
+       <height>14</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>FolowUp</string>
+     </property>
+    </widget>
+    <widget class="QSpinBox" name="spinBoxFU">
+     <property name="geometry">
+      <rect>
+       <x>80</x>
+       <y>560</y>
+       <width>43</width>
+       <height>22</height>
+      </rect>
      </property>
     </widget>
    </widget>

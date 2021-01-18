@@ -1598,3 +1598,29 @@ void MainWindow::on_pushButtonCLRRep_clicked()
                                QString("totalFPNonValidCount") + "\t");
 
 }
+
+void MainWindow::on_pushButtonProcesFollowUp_clicked()
+{
+    path TextFile = ui->lineEditImageFolder->text().toStdWString();
+    TextFile.append(FileToOpen.stem().string() + ".txt");
+
+    if (!exists(TextFile))
+    {
+        ui->textEditOut->append("txt file does not exist");
+        return;
+    }
+    std::ifstream inFile(TextFile.string());
+    if (!inFile.is_open())
+    {
+        ui->textEditOut->append("txt file can not be opened");
+        return;
+    }
+    string Line;
+    while(inFile.good())
+    {
+        getline(inFile, Line);
+        Line.substr(3, )
+    }
+    inFile.close();
+
+}

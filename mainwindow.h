@@ -67,6 +67,8 @@ private slots:
 
     void on_pushButtonCLRRep_clicked();
 
+    void on_pushButtonProcesFollowUp_clicked();
+
 private:
     Ui::MainWindow *ui;
 

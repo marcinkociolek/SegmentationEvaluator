@@ -274,7 +274,7 @@ void MainWindow::LoadReffMask()
 
     if(exists(maskFilePath))
     {
-        ReffMask = imread(maskFilePath.string(), CV_LOAD_IMAGE_ANYDEPTH);
+        ReffMask = imread(maskFilePath.string(), cv::IMREAD_ANYDEPTH);
         if(ReffMask.type() != CV_16U)
         {
             ui->textEditOut->append("mask format improper");
@@ -312,7 +312,7 @@ void MainWindow::LoadLesionMask()
     LesionMask = Mat::zeros(ImIn.rows, ImIn.cols, CV_16U);
     if(exists(maskFilePath))
     {
-        LesionMaskTemp = imread(maskFilePath.string(), CV_LOAD_IMAGE_ANYDEPTH);
+        LesionMaskTemp = imread(maskFilePath.string(), cv::IMREAD_ANYDEPTH);
         if(LesionMaskTemp.type() != CV_8U)
         {
             ui->textEditOut->append("lesion mask format improper");
@@ -376,7 +376,7 @@ cv::Mat MainWindow::LoadLesionMask(std::string PostFix)
     Mat LesionMaskTemp;
     if(exists(maskFilePath))
     {
-        LesionMaskTemp = imread(maskFilePath.string(), CV_LOAD_IMAGE_ANYDEPTH);
+        LesionMaskTemp = imread(maskFilePath.string(), cv::IMREAD_ANYDEPTH);
         if(LesionMaskTemp.type() != CV_8U)
         {
             ui->textEditOut->append("lesion mask file " + QString::fromStdWString(maskFilePath.wstring())+" format improper");
@@ -435,7 +435,7 @@ cv::Mat MainWindow::LoadLesionMask8bit(std::string PostFix)
     Mat LesionMaskTemp;
     if(exists(maskFilePath))
     {
-        LesionMaskTemp = imread(maskFilePath.string(), CV_LOAD_IMAGE_ANYDEPTH);
+        LesionMaskTemp = imread(maskFilePath.string(), cv::IMREAD_ANYDEPTH);
         if(LesionMaskTemp.type() != CV_8U)
         {
             ui->textEditOut->append("lesion mask file " + QString::fromStdWString(maskFilePath.wstring())+" format improper");
@@ -1432,7 +1432,15 @@ void MainWindow::on_pushButtonSaveOut_clicked()
     path outFilePath = ImageFolderQStr.toStdWString();
 
     outFilePath.append(FileToOpen.stem().string() + ui->lineEditPostFix->text().toStdString() + ".jpg");
-    Mat ImToSave = ShowSolidRegionOnImage(Mask, ImIn);
+
+    Mat ImToSave;
+    if(ui->checkBoxShowMaskAsContour->checkState())
+        ImToSave = ShowSolidRegionOnImage(GetContour5(Mask), ImIn);
+    else
+        ImToSave = ShowSolidRegionOnImage(Mask, ImIn);
+
+
+
     imwrite(outFilePath.string(),ImToSave);
 }
 

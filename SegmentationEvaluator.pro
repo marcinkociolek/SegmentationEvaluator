@@ -51,8 +51,8 @@ HEADERS += \
 FORMS += \
         mainwindow.ui
 
-win32: INCLUDEPATH += C:\opencv\build\include\
-win32: INCLUDEPATH += C:\boost_1_66_0\
+win32: INCLUDEPATH += C:\opencv452cudaWorld\include\
+win32: INCLUDEPATH += C:\boost1_75\
 win32: INCLUDEPATH += ..\..\ProjectsLib\LibMarcin\
 win32: INCLUDEPATH += ../SkinLesionDiscovery\
 win32: INCLUDEPATH += C:\LibTiff\
@@ -60,12 +60,13 @@ win32: INCLUDEPATH += ../../ProjectsLibForein/LibPMS/
 win32: INCLUDEPATH += ../../ProjectsLibForein/LibPMS/
 
 # this is for debug
-win32: LIBS += -LC:/opencv/build/x64/vc15/lib/
-win32: LIBS += -lopencv_world341d
+win32: LIBS += -LC:\opencv452cudaWorld\x64\vc16\lib
+win32: LIBS += -lopencv_world452
 
-win32: LIBS += -LC:/boost_1_66_0/stage/x64/lib/
-win32:  LIBS += -lboost_filesystem-vc141-mt-gd-x64-1_66
-win32:  LIBS += -lboost_regex-vc141-mt-gd-x64-1_66
+win32: LIBS += -LC:\boost1_75\stage\x64\lib
+win32: LIBS += -lboost_filesystem-vc142-mt-x64-1_75
+win32: LIBS += -lboost_regex-vc142-mt-x64-1_75
+
 
 
 # this is for release

@@ -92,6 +92,11 @@ private:
     cv::Mat CombinedMask;
     cv::Mat MaskBcg;
 
+    cv::Mat TileIm;
+    cv::Mat TileReffMask;
+    cv::Mat TileLesionMask;
+    cv::Mat TileMask;
+
     double minIm;
     double maxIm;
 

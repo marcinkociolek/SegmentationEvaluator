@@ -164,7 +164,7 @@
       <double>10.000000000000000</double>
      </property>
      <property name="value">
-      <double>6.000000000000000</double>
+      <double>1.000000000000000</double>
      </property>
     </widget>
     <widget class="QLabel" name="labelTileSize">
@@ -234,7 +234,7 @@
       <number>16</number>
      </property>
      <property name="maximum">
-      <number>512</number>
+      <number>1500</number>
      </property>
      <property name="singleStep">
       <number>16</number>

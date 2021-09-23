@@ -1033,7 +1033,7 @@ void MainWindow::GetTile()
     //prevTilePositionX = tilePositionX;
     //prevTilePositionY = tilePositionY;
 
-    Mat TileIm, TileReffMask, TileLesionMask, TileMask;
+    //Mat TileIm, TileReffMask, TileLesionMask, TileMask;
 
     ImIn(Rect(tilePositionX, tilePositionY, tileSizeX, tileSizeY)).copyTo(TileIm);
     ReffMask(Rect(tilePositionX, tilePositionY, tileSizeX, tileSizeY)).copyTo(TileReffMask);
@@ -1428,20 +1428,31 @@ void MainWindow::on_pushButtonReload_clicked()
 
 void MainWindow::on_pushButtonSaveOut_clicked()
 {
-    QString ImageFolderQStr = ui->lineEditImageFolder->text();
-    path outFilePath = ImageFolderQStr.toStdWString();
+    QString ImageFolderQStr;
+    path outFilePath;
+    ImageFolderQStr = ui->lineEditOutFolder->text();
+    outFilePath = ImageFolderQStr.toStdWString();
 
-    outFilePath.append(FileToOpen.stem().string() + ui->lineEditPostFix->text().toStdString() + ".jpg");
-
-    Mat ImToSave;
-    if(ui->checkBoxShowMaskAsContour->checkState())
-        ImToSave = ShowSolidRegionOnImage(GetContour5(Mask), ImIn);
-    else
-        ImToSave = ShowSolidRegionOnImage(Mask, ImIn);
-
-
-
+    outFilePath.append(FileToOpen.stem().string() + ui->lineEditPostFix->text().toStdString() + ".bmp");
+    Mat ImToSave = ShowSolidRegionOnImage(Mask, ImIn);
     imwrite(outFilePath.string(),ImToSave);
+
+    ImageFolderQStr = ui->lineEditOutFolder->text();
+    outFilePath = ImageFolderQStr.toStdWString();
+
+    if(!ui->checkBox3Masks->checkState())
+    {
+        outFilePath.append(FileToOpen.stem().string() + ui->lineEditPostFix->text().toStdString() + "Tile.bmp");
+        ImToSave = ShowSolidRegionOnImage(TileMask, TileIm);
+        imwrite(outFilePath.string(),ImToSave);
+    }
+    else
+    {
+        outFilePath.append(FileToOpen.stem().string() + "Fussion" + "Tile.bmp");
+        ImToSave = ShowSolidRegionOnImage(TileMask, TileIm);
+        imwrite(outFilePath.string(),ImToSave);
+    }
+
 }
 
 void MainWindow::on_pushButtonSaveQMaZdaStyleRoi_clicked()
